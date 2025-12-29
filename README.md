@@ -1,86 +1,67 @@
-# S2C (Sketch to Code) - Loom
+# S2C (Sketch to Code)
 
-An AI-powered SaaS application that converts wireframes and sketches into production-ready code. Built with Next.js 15, Convex, and AI integrations.
+An AI-powered SaaS application for converting sketches to code/designs, reconstructed from the "Default_AI SaaS" tutorial.
 
-## 🚀 Features
+## Features
+*   **Infinite Canvas**: Figma-like drawing experience (Redux + React).
+*   **Mood Board**: Drag-and-drop image organization (Convex Storage).
+*   **AI Generation**: Text-to-UI generation (Simulated "Stitch" feature).
+*   **Authentication**: Secure Google OAuth via Convex Auth.
+*   **Modern UI**: Built with Shadcn UI, Tailwind CSS v4, and Dark Mode support.
 
-- **AI-Powered Design to Code**: Convert sketches into clean, usable code.
-- **Infinite Canvas**: Figma-like canvas for freehand drawing and element manipulation.
-- **Mood Boards**: AI-assisted mood board generation.
-- **Authentication**: Secure login via Google OAuth (powered by Convex Auth).
-- **Real-time Collaboration**: Built on Convex's reactive database.
+## Tech Stack
+*   **Frontend**: Next.js 15 (App Router), TypeScript
+*   **Backend**: Convex (Database, Auth, Storage, Functions)
+*   **State Management**: Redux Toolkit (Canvas state)
+*   **Styling**: Tailwind CSS, Shadcn UI
 
-## 🛠️ Tech Stack
-
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4, Shadcn UI
-- **Backend**: Convex (BaaS)
-- **State Management**: Redux Toolkit + RTK Query
-- **Authentication**: Convex Auth
-- **AI**: Anthropics API (Claude) (Upcoming)
-
-## 🏃‍♂️ Getting Started
+## Getting Started
 
 ### Prerequisites
-
-- Node.js & npm
-- A [Convex](https://convex.dev) account
-- A Google Cloud Console project (for OAuth)
+*   Node.js 18+
+*   npm or yarn
 
 ### Installation
-
-1.  **Clone the repository:**
+1.  **Clone the repository**:
     ```bash
     git clone https://github.com/Sarvesh2005-code/loom.git
     cd loom
     ```
 
-2.  **Install dependencies:**
+2.  **Install dependencies**:
     ```bash
     npm install
     ```
 
-3.  **Initialize Convex:**
+3.  **Local Development**:
+    Start the frontend and backend servers:
+    ```bash
+    npm run dev
+    npx convex dev
+    ```
+    The app will be available at [http://localhost:3000](http://localhost:3000).
+
+### Configuration
+1.  **Convex Setup**:
+    Initialize Convex if not done already:
     ```bash
     npx convex dev
     ```
+    This will generate your `.env.local` file with `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL`.
 
-### 🔐 Authentication Setup (Google OAuth)
+2.  **Google OAuth**:
+    *   Create OAuth credentials in Google Cloud Console.
+    *   Add `CONVEX_AUTH_GOOGLE_CLIENT_ID` and `CONVEX_AUTH_GOOGLE_CLIENT_SECRET` to your environment variables in the Convex Dashboard.
 
-To enable Google Sign-In, you need to configure OAuth credentials in the Google Cloud Console.
+## Deployment (Vercel)
+1.  Push to GitHub.
+2.  Import project in Vercel.
+3.  Add the following Environment Variables in Vercel:
+    *   `CONVEX_DEPLOYMENT` (Production value)
+    *   `NEXT_PUBLIC_CONVEX_URL` (Production value)
+    *   `CONVEX_AUTH_GOOGLE_CLIENT_ID`
+    *   `CONVEX_AUTH_GOOGLE_CLIENT_SECRET`
+4.  Deploy!
 
-1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2.  Create a new project (e.g., "S2C Loom").
-3.  Navigate to **APIs & Services > OAuth consent screen**.
-    - User Type: **External**
-    - Fill in required app information.
-4.  Navigate to **Credentials > Create Credentials > OAuth client ID**.
-    - Application Type: **Web application**
-    - **Authorized JavaScript origins**:
-        - `http://localhost:3000` (for local dev)
-        - Your production URL (later)
-    - **Authorized redirect URIs**:
-        - `http://localhost:3000/api/auth/callback/google` (standard NextAuth/Auth.js pattern)
-        - *Note:* Convex Auth sometimes uses specific callback URLs. Check your Convex dashboard if the above doesn't work.
-5.  **Copy the Credentials**:
-    - Client ID
-    - Client Secret
-
-6.  **Add to Convex Dashboard**:
-    - Go to your project settings in the Convex Dashboard.
-    - Add the following Environment Variables:
-        - `CONVEX_AUTH_GOOGLE_CLIENT_ID`: (Your Client ID)
-        - `CONVEX_AUTH_GOOGLE_CLIENT_SECRET`: (Your Client Secret)
-
-## 💻 Development
-
-Run the development server:
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## 📝 License
-
-[MIT](LICENSE)
+## License
+MIT

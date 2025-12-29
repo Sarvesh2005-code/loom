@@ -10,8 +10,9 @@ import StoreProvider from "@/providers/store-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "S2C - Sketch to Code",
-  description: "AI-powered SaaS for designing and converting wireframes to code.",
+  title: "S2C - Sketch to Code AI",
+  description: "Convert sketches and wireframes into stunning designs and code with AI.",
+  keywords: ["AI", "Design", "Code", "SaaS", "Wireframe", "Canvas"],
 };
 
 export default function RootLayout({

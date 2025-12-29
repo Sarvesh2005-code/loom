@@ -84,34 +84,41 @@ export default function GeneratePage() {
 }
 
 // Simple recursive renderer for our mock JSON structure
-function PreviewRenderer({ data }: { data: any }) {
-    if (!data) return null;
-
-    if (data.elements) {
-        return (
-            <div className="w-full">
-                {data.elements.map((el: any, i: number) => (
-                    <RenderElement key={i} element={el} />
-                ))}
-            </div>
-        );
-    }
-    return null;
+interface RenderData {
+    type: string;
+    elements?: RenderData[];
+    content?: string;
+    className?: string;
+    src?: string;
+    alt?: string;
+    children?: RenderData[]; // normalize structure
 }
 
-function RenderElement({ element }: { element: any }) {
+function PreviewRenderer({ data }: { data: { elements: RenderData[] } }) {
+    if (!data || !data.elements) return null;
+
+    return (
+        <div className="w-full">
+            {data.elements.map((el, i) => (
+                <RenderElement key={i} element={el} />
+            ))}
+        </div>
+    );
+}
+
+function RenderElement({ element }: { element: RenderData }) {
     if (!element) return null;
 
     // Basic mapping of types to HTML tags
-    const Tag = element.type as keyof JSX.IntrinsicElements;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Tag = element.type as any; // Cast to any to bypass strict JSX limits for dynamic tags in this mock
 
-    // Safety check - only allow safe tags if needed, or just let it pass for now
     if (!Tag) return null;
 
     // Handle children: either string content or nested arrays
-    let children = element.content;
+    let children: React.ReactNode = element.content;
     if (element.children && Array.isArray(element.children)) {
-        children = element.children.map((child: any, i: number) => (
+        children = element.children.map((child, i) => (
             <RenderElement key={i} element={child} />
         ));
     }
