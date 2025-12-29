@@ -12,6 +12,7 @@ export const hasEntitlement = query({
         const subscription = await ctx.db
             .query("subscriptions")
             .withIndex("by_user", (q) => q.eq("userId", userId))
+            // .filter((q) => q.eq(q.field("userId"), userId)) // Fallback if index fails
             .first();
 
         // Check if subscription exists and is active

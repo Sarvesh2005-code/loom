@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
     ...authTables,
+    // Schema definition for S2C
     users: defineTable({
         name: v.optional(v.string()),
         image: v.optional(v.string()),

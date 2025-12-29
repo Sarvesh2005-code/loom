@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "module": "CommonJS",
+    "module": "ESNext",
     "target": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true
+    "strict": true,
+    "noEmit": true
   },
   "include": [
     "**/*"
