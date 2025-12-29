@@ -2,29 +2,52 @@
 
 import { useQuery } from "convex/react";
 import { usePathname } from "next/navigation";
-import { api } from "../../convex/_generated/api"; // Relative path to convex folder
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Sparkles, Layout, Palette } from "lucide-react";
 
 export default function Navbar() {
-    // Logic to fetch project details if in a project route
-    // Transcript: "Fetches project details using api.projects.getProject query... Uses usePathname..."
     const pathname = usePathname();
-    // extracting projectId from pathname if possible, usually /dashboard/projectId
-    // For now, simple structure.
+
+    // Checks if we are in the workspace area
+    const isWorkspace = pathname.includes("/workspace");
 
     return (
-        <nav className="flex items-center justify-between border-b px-6 py-4">
-            <div className="flex items-center gap-4">
+        <nav className="flex items-center justify-between border-b bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center gap-6">
                 {/* Project Name or Logo */}
-                <h1 className="text-xl font-bold">S2C</h1>
+                <Link href="/protected/dashboard" className="flex items-center gap-2 font-bold text-xl">
+                    S2C
+                </Link>
+
+                {isWorkspace && (
+                    <div className="flex items-center gap-1">
+                        <Button variant={pathname.includes("/canvas") ? "secondary" : "ghost"} size="sm" asChild>
+                            <Link href="/workspace/canvas">
+                                <Layout className="mr-2 h-4 w-4" />
+                                Canvas
+                            </Link>
+                        </Button>
+                        <Button variant={pathname.includes("/generate") ? "secondary" : "ghost"} size="sm" asChild>
+                            <Link href="/workspace/generate">
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Generate
+                            </Link>
+                        </Button>
+                        <Button variant={pathname.includes("/style-guide") ? "secondary" : "ghost"} size="sm" asChild>
+                            <Link href="/workspace/style-guide">
+                                <Palette className="mr-2 h-4 w-4" />
+                                Style
+                            </Link>
+                        </Button>
+                    </div>
+                )}
             </div>
-            <div className="flex items-center gap-4">
-                {/* Tabs: Canvas, Style Guide (Visible if in project) */}
-            </div>
+
             <div className="flex items-center gap-4">
                 {/* User Credits & Avatar */}
-                <div className="text-sm font-medium">Credits: 10</div>
+                <div className="hidden text-sm font-medium md:block">Credits: 10</div>
                 <Avatar>
                     <AvatarImage src="" />
                     <AvatarFallback>U</AvatarFallback>
