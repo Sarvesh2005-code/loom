@@ -11,7 +11,7 @@ export default function GoogleAuthButton() {
     const handleSignIn = async () => {
         setIsLoading(true);
         try {
-            await signIn("google", { redirectTo: "/protected/dashboard" });
+            await signIn("google", { redirectTo: "http://localhost:3000/protected/dashboard" });
         } catch (error) {
             console.error(error);
             setIsLoading(false);

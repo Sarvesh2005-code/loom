@@ -4,10 +4,15 @@ const isPublicPage = createRouteMatcher(["/auth/signin", "/auth/signup"]);
 const isProtectedPage = createRouteMatcher(["/dashboard(.*)", "/protected(.*)"]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-    if (isPublicPage(request) && (await convexAuth.isAuthenticated())) {
+    const isAuth = await convexAuth.isAuthenticated();
+    console.log(`[Middleware] ${request.nextUrl.pathname} - Authenticated: ${isAuth}`);
+
+    if (isPublicPage(request) && isAuth) {
+        console.log("Redirecting to dashboard");
         return nextjsMiddlewareRedirect(request, "/protected/dashboard");
     }
-    if (isProtectedPage(request) && !(await convexAuth.isAuthenticated())) {
+    if (isProtectedPage(request) && !isAuth) {
+        console.log("Redirecting to login");
         return nextjsMiddlewareRedirect(request, "/auth/signin");
     }
 });
