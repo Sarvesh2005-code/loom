@@ -12,6 +12,7 @@ export interface Shape {
     stroke: string;
     strokeWidth: number;
     rotation: number;
+    content?: string;
 }
 
 export type ToolType = "select" | "hand" | "rectangle" | "ellipse" | "text" | "image" | "pencil";
