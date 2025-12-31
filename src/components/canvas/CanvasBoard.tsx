@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { addShape, updateShape, Shape, ToolType, setTool, selectShape } from "@/lib/slices/shapesSlice";
+import { addShape, updateShape, Shape, ToolType, setTool, selectShape, setViewport } from "@/lib/slices/shapesSlice";
 import { useState, useRef, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -41,19 +41,22 @@ export default function CanvasBoard() {
         const canvasX = (screenX - viewport.x) / viewport.zoom;
         const canvasY = (screenY - viewport.y) / viewport.zoom;
 
+        // Pan Logic (Hand Tool or Middle Click)
+        if (tool === "hand" || e.button === 1) {
+            startPos.current = { x: screenX, y: screenY }; // Store SCREEN coords for panning
+            return;
+        }
+
         // If clicking on canvas (not shape) and tool is select, deselect all if needed
         if (tool === "select") {
-            // In a real app we might deselect here
             // dispatch(selectShape(null)); 
             return;
         }
 
-        if (tool === "hand") return;
-
         setIsDrawing(true);
         const id = uuidv4();
         setCurrentShapeId(id);
-        startPos.current = { x: canvasX, y: canvasY };
+        startPos.current = { x: canvasX, y: canvasY }; // Store CANVAS coords for drawing
 
         const newShape: Shape = {
             id,
@@ -86,10 +89,6 @@ export default function CanvasBoard() {
             setDraggingId(id);
 
             const shape = shapes[id];
-
-            // We need to calculate the offset from the shape's top-left to the mouse pointer
-            // But we need the mouse pointer in Canvas Coordinates.
-            // Simplest way: re-calculate canvasX/Y just like in handleMouseDown
             const svgElement = e.currentTarget.closest('svg');
             if (!svgElement) return;
 
@@ -103,8 +102,27 @@ export default function CanvasBoard() {
 
     const handleMouseMove = (e: React.MouseEvent) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
-        const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+
+        const canvasX = (screenX - viewport.x) / viewport.zoom;
+        const canvasY = (screenY - viewport.y) / viewport.zoom;
+
+        // Handle Panning
+        if (tool === "hand" && startPos.current) {
+            const dx = screenX - startPos.current.x;
+            const dy = screenY - startPos.current.y;
+
+            // Dispatch viewport update
+            dispatch(setViewport({
+                ...viewport,
+                x: viewport.x + dx,
+                y: viewport.y + dy
+            }));
+
+            startPos.current = { x: screenX, y: screenY };
+            return;
+        }
 
         // Handle Dragging
         if (draggingId && tool === "select" && dragOffset.current) {
@@ -135,6 +153,29 @@ export default function CanvasBoard() {
         }));
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+        // Zoom Logic
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const ZOOM_SPEED = 0.001;
+            const newZoom = Math.max(0.1, Math.min(5, viewport.zoom - e.deltaY * ZOOM_SPEED));
+
+            // Zoom towards mouse pointer logic could go here, for now center/simple zoom
+            // Simple zoom update
+            dispatch(setViewport({
+                ...viewport,
+                zoom: newZoom
+            }));
+        } else {
+            // Pan on scroll
+            dispatch(setViewport({
+                ...viewport,
+                x: viewport.x - e.deltaX,
+                y: viewport.y - e.deltaY
+            }));
+        }
+    };
+
     const handleMouseUp = () => {
         if (isDrawing && tool === "text" && currentShapeId) {
             dispatch(setTool("select"));
@@ -146,6 +187,7 @@ export default function CanvasBoard() {
         setDraggingId(null);
         dragOffset.current = null;
     };
+
 
     const handleDoubleClick = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
@@ -171,6 +213,7 @@ export default function CanvasBoard() {
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
+            onWheel={handleWheel}
         >
             <svg
                 className="h-full w-full touch-none"

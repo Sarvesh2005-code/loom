@@ -10,6 +10,7 @@
 
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
+import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as moodboard from "../moodboard.js";
 import type * as projects from "../projects.js";
@@ -26,6 +27,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   auth: typeof auth;
+  files: typeof files;
   http: typeof http;
   moodboard: typeof moodboard;
   projects: typeof projects;
