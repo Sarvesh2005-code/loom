@@ -6,7 +6,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Download } from "lucide-react";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -36,15 +36,36 @@ export default function CodePreview({ isOpen, onClose, code }: CodePreviewProps)
                                 You can copy this code into your React project.
                             </DialogDescription>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCopy}
-                            className="gap-2 bg-neutral-800 border-neutral-700 hover:bg-neutral-700 hover:text-white"
-                        >
-                            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                            {copied ? "Copied" : "Copy Code"}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const blob = new Blob([code], { type: "text/plain" });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = "GeneratedComponent.tsx";
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }}
+                                className="gap-2 bg-neutral-800 border-neutral-700 hover:bg-neutral-700 hover:text-white"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCopy}
+                                className="gap-2 bg-neutral-800 border-neutral-700 hover:bg-neutral-700 hover:text-white"
+                            >
+                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                {copied ? "Copied" : "Copy Code"}
+                            </Button>
+                        </div>
                     </div>
                 </DialogHeader>
 

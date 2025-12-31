@@ -12,8 +12,8 @@ function shapesToPrompt(shapes: any[]) {
 
 export const generateUI = action({
   args: {
-    projectId: v.id("projects"),
-    shapes: v.any(),
+    projectId: v.optional(v.id("projects")),
+    shapes: v.optional(v.any()),
     imageUrls: v.optional(v.array(v.string())),
     prompt: v.optional(v.string())
   },
@@ -22,7 +22,8 @@ export const generateUI = action({
     if (!userId) throw new Error("Unauthenticated");
 
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY; // Support both
-    const shapesText = shapesToPrompt(Object.values(args.shapes));
+    const shapes = args.shapes || {};
+    const shapesText = shapesToPrompt(Object.values(shapes));
 
     // Fallback Mock if no key
     if (!apiKey) {
@@ -40,7 +41,7 @@ export const generateUI = action({
         </div>
       </div>
       <div className="mt-6 h-32 bg-neutral-50 rounded-lg flex items-center justify-center text-neutral-400">
-        Content based on ${Object.keys(args.shapes).length} shapes. <br/>
+        Content based on ${Object.keys(shapes).length} shapes. <br/>
         ${args.imageUrls?.length ? `Analyzed ${args.imageUrls.length} mood board images.` : "No mood board images."}
       </div>
     </div>
@@ -58,24 +59,18 @@ export const generateUI = action({
     // but we should to enable the feature. 
 
     let styleGuidePrompt = "";
-    const project = await ctx.runQuery(api.projects.getProject, { projectId: args.projectId });
-    // wait, we can't call runQuery inside action easily unless we use 'ctx.runQuery'. 
-    // Convex Actions run in separate isolated environment. They CAN call queries.
-    // But 'getProject' checks auth. Auth might be tricky in internal call?
-    // Actually, 'auth.getUserId(ctx)' works in actions.
-
-    // Let's rely on the client passing it OR fetch it here.
-    // Fetching here is better for consistency.
-
-    if (project && project.styleGuide) {
-      styleGuidePrompt = `
-             STYLE GUIDE:
-             - Primary Color: ${project.styleGuide.primaryColor || "default"}
-             - Font Family: ${project.styleGuide.fontFamily || "default"}
-             - Border Radius: ${project.styleGuide.borderRadius || "default"}
-             
-             Use these styles strictly.
-             `;
+    if (args.projectId) {
+      const project = await ctx.runQuery(api.projects.getProject, { projectId: args.projectId });
+      if (project && project.styleGuide) {
+        styleGuidePrompt = `
+                 STYLE GUIDE:
+                 - Primary Color: ${project.styleGuide.primaryColor || "default"}
+                 - Font Family: ${project.styleGuide.fontFamily || "default"}
+                 - Border Radius: ${project.styleGuide.borderRadius || "default"}
+                 
+                 Use these styles strictly.
+                 `;
+      }
     }
 
     const prompt = `
@@ -138,4 +133,77 @@ export const generateUI = action({
       throw new Error("Failed to generate UI with Gemini: " + e.message);
     }
   },
+});
+
+export const refineShapes = action({
+  args: {
+    projectId: v.id("projects"),
+    shapes: v.any(), // Current shapes
+    selectedShapeIds: v.array(v.string()), // IDs of shapes user wants to modify (or empty for global)
+    prompt: v.string(), // "Make buttons blue", "Align everything left"
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+
+    // Fallback Mock
+    if (!apiKey) {
+      console.log("⚠️ No Gemini/Google API Key found for refinement. Returning mocks.");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Mock logic: just change color of selected shapes to a "refined" color
+      const newShapes = { ...args.shapes };
+      if (args.selectedShapeIds.length > 0) {
+        args.selectedShapeIds.forEach((id: string) => {
+          if (newShapes[id]) {
+            newShapes[id] = { ...newShapes[id], fill: "#4f46e5" }; // Turn indie blue
+          }
+        });
+      }
+      return { shapes: newShapes, message: "Mock refinement applied (Blue Color)." };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", generationConfig: { responseMimeType: "application/json" } });
+
+    const shapesText = JSON.stringify(args.shapes);
+    const selectedIdsText = args.selectedShapeIds.join(", ");
+
+    const prompt = `
+    You are an intelligent design assistant. You modify JSON data representing canvas shapes.
+    
+    CURRENT_SHAPES (JSON):
+    ${shapesText}
+    
+    SELECTED_SHAPE_IDS:
+    [${selectedIdsText}]
+    
+    USER_INSTRUCTION:
+    "${args.prompt}"
+    
+    TASK:
+    1. Analyze the USER_INSTRUCTION.
+    2. Modify the properties (x, y, width, height, fill, stroke, content, borderRadius, etc.) of the relevant shapes to fulfill the request.
+    3. If SELECTED_SHAPE_IDS is not empty, prioritize modifying those shapes, but you can modify others if necessary for context (e.g. alignment).
+    4. If SELECTED_SHAPE_IDS is empty, treat the instruction as global (e.g. "make background dark").
+    5. Return the COMPLETELY NEW JSON object of shapes. strictly valid JSON.
+    
+    RESPONSE FORMAT:
+    {
+        "shapes": { ...key value pairs of shapes... },
+        "message": "Brief description of what changed"
+    }
+    `;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const json = JSON.parse(text);
+      return json;
+    } catch (e: any) {
+      console.error("Gemini Refine Error:", e);
+      throw new Error("Failed to refine shapes: " + e.message);
+    }
+  }
 });

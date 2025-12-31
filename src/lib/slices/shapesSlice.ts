@@ -64,10 +64,14 @@ export const shapesSlice = createSlice({
         },
         deselectAll: (state) => {
             state.selectedIds = [];
+        },
+        setShapes: (state, action: PayloadAction<Record<string, Shape>>) => {
+            state.shapes = action.payload;
+            state.ids = Object.keys(action.payload);
         }
     },
 })
 
-export const { setTool, setViewport, addShape, updateShape, selectShape, deselectAll } = shapesSlice.actions
+export const { setTool, setViewport, addShape, updateShape, selectShape, deselectAll, setShapes } = shapesSlice.actions
 
 export default shapesSlice.reducer

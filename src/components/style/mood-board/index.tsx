@@ -7,7 +7,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
-import { useUploadFiles } from "@xixixao/uploadstuff/react";
+import { useUploadFiles } from "@/hooks/useUploadFiles";
 import { toast } from "sonner";
 
 interface MoodBoardProps {
@@ -59,11 +59,12 @@ export default function MoodBoard({ projectId }: MoodBoardProps) {
             const uploaded = await startUpload(fileArray);
 
             await Promise.all(uploaded.map(async (file) => {
-                const url = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${file.storageId}`;
+                const storageId = file.response as Id<"_storage">;
+                const url = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
 
                 await saveImage({
                     projectId,
-                    storageId: file.storageId,
+                    storageId: storageId,
                     url: url
                 });
             }));
