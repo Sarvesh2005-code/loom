@@ -31,7 +31,7 @@ export const createProject = mutation({
             userId,
             name: args.name,
             description: args.description,
-            status: "active"
+            // status: "active" // Removed from schema, so removed here. derived from isArchived flag instead.
         });
 
         // Initialize counters or other related data if needed
@@ -48,6 +48,7 @@ export const listProjects = query({
         return await ctx.db
             .query("projects")
             .withIndex("by_user", (q) => q.eq("userId", userId))
+            .filter((q) => q.neq(q.field("isArchived"), true))
             .order("desc")
             .collect();
     }
@@ -56,10 +57,19 @@ export const listProjects = query({
 export const updateProject = mutation({
     args: {
         projectId: v.id("projects"),
-        styleGuide: v.optional(v.any()),
+        styleGuide: v.optional(v.any()), // Keep any for now or upgrade to strict if needed
         name: v.optional(v.string()),
         description: v.optional(v.string()),
-        moodBoardImages: v.optional(v.array(v.string())), // Include this if not present
+        moodBoardImages: v.optional(v.array(v.string())),
+        canvasData: v.optional(v.object({
+            shapes: v.any(), // Matching schema definition
+            viewport: v.object({
+                x: v.number(),
+                y: v.number(),
+                zoom: v.number()
+            })
+        })),
+        isArchived: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         const userId = await auth.getUserId(ctx);

@@ -1,25 +1,58 @@
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { addShape, updateShape, Shape, ToolType, setTool, selectShape, setViewport } from "@/lib/slices/shapesSlice";
+import { addShape, updateShape, Shape, setTool, selectShape, setViewport, deleteShape, deselectAll } from "@/lib/slices/shapesSlice";
 import { useState, useRef, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
+import ShapeRenderer from "./ShapeRenderer";
+import SelectionOverlay from "./SelectionOverlay";
+import { useCanvasSync } from "@/hooks/useCanvasSync";
+import { useCanvasHydration } from "@/hooks/useCanvasHydration";
 
-export default function CanvasBoard() {
+import { Id } from "../../../convex/_generated/dataModel";
+
+interface CanvasBoardProps {
+    projectId: Id<"projects">;
+}
+
+export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     const dispatch = useAppDispatch();
-    const { shapes, ids, viewport, tool } = useAppSelector((state) => state.shapes);
+    const { shapes, ids, viewport, selectedIds, tool } = useAppSelector((state) => state.shapes);
+    const selectedId = selectedIds[0] || null;
+
+    // Hooks for Persistence
+    useCanvasHydration(projectId);
+    useCanvasSync(projectId);
+
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentShapeId, setCurrentShapeId] = useState<string | null>(null);
     const startPos = useRef<{ x: number, y: number } | null>(null);
+
+    // Interaction State
+    const [interactionMode, setInteractionMode] = useState<"idle" | "panning" | "drawing" | "dragging" | "resizing" | "rotating">("idle");
+    const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+
+    // Refs for Drag/Resize
+    const dragOffset = useRef<{ x: number, y: number } | null>(null);
+    const initialShapeState = useRef<Shape | null>(null);
+    const rafRef = useRef<number | null>(null); // For RAF throttling
 
     // Text Editing State
     const [editingId, setEditingId] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Dragging State
-    const [draggingId, setDraggingId] = useState<string | null>(null);
-    const dragOffset = useRef<{ x: number, y: number } | null>(null);
+    // Keyboard Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !editingId) {
+                dispatch(deleteShape(selectedId));
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [selectedId, editingId, dispatch]);
 
+    // Focus text area when editing
     useEffect(() => {
         if (editingId && textareaRef.current) {
             textareaRef.current.focus();
@@ -27,36 +60,50 @@ export default function CanvasBoard() {
         }
     }, [editingId]);
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-        // If editing, clicking outside should stop editing
-        if (editingId && e.target !== textareaRef.current) {
-            setEditingId(null);
-            return;
-        }
-
+    const getCanvasCoords = (e: React.PointerEvent) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
-
         const canvasX = (screenX - viewport.x) / viewport.zoom;
         const canvasY = (screenY - viewport.y) / viewport.zoom;
+        return { screenX, screenY, canvasX, canvasY };
+    };
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        // Critical: Capture pointer so we get events even if mouse leaves the div (fixes header bug)
+        (e.target as Element).setPointerCapture(e.pointerId);
+
+        if (editingId && e.target !== textareaRef.current) {
+            setEditingId(null);
+        }
+
+        const { screenX, screenY, canvasX, canvasY } = getCanvasCoords(e);
+
+        // Check if a child handled this event (shape click or resize handle)
+        if (e.defaultPrevented) {
+            // Child handled it (drag or resize), we just ensure capture is set (done above)
+            return;
+        }
 
         // Pan Logic (Hand Tool or Middle Click)
         if (tool === "hand" || e.button === 1) {
-            startPos.current = { x: screenX, y: screenY }; // Store SCREEN coords for panning
+            setInteractionMode("panning");
+            startPos.current = { x: screenX, y: screenY };
             return;
         }
 
-        // If clicking on canvas (not shape) and tool is select, deselect all if needed
+        // If clicking on canvas background (not intercepted by shape/handle)
         if (tool === "select") {
-            // dispatch(selectShape(null)); 
+            dispatch(deselectAll());
             return;
         }
 
+        // Drawing Logic
+        setInteractionMode("drawing");
         setIsDrawing(true);
         const id = uuidv4();
         setCurrentShapeId(id);
-        startPos.current = { x: canvasX, y: canvasY }; // Store CANVAS coords for drawing
+        startPos.current = { x: canvasX, y: canvasY };
 
         const newShape: Shape = {
             id,
@@ -82,75 +129,186 @@ export default function CanvasBoard() {
         dispatch(addShape(newShape));
     };
 
-    const handleShapeMouseDown = (e: React.MouseEvent, id: string) => {
+    const handleShapePointerDown = (e: React.PointerEvent, id: string) => {
         if (tool === "select") {
-            e.stopPropagation();
+            // Signal to parent that we handled this as a shape interaction
+            e.preventDefault();
+            // Do NOT stopPropagation, let parent setPointerCapture
+
             dispatch(selectShape(id));
-            setDraggingId(id);
+            setInteractionMode("dragging");
 
+            // We need coords relative to the canvas, so we can't use e.nativeEvent easily
+            // But getCanvasCoords needs the container rect. 
+            // e.currentTarget is the GROUP <g>. We need the DIV's rect.
+            // We can calculate offset from the shape's data which is simpler.
             const shape = shapes[id];
-            const svgElement = e.currentTarget.closest('svg');
-            if (!svgElement) return;
 
-            const rect = svgElement.getBoundingClientRect();
-            const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
-            const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+            // However, to drag accurately relative to mouse, we need mouse world coords.
+            // getCanvasCoords uses e.currentTarget.getBoundingClientRect().
+            // If we use it here, e.currentTarget is SVG <g>, which changes bounds!
+            // WE NEED THE CONTAINER DIV.
 
-            dragOffset.current = { x: canvasX - shape.x, y: canvasY - shape.y };
+            // Fix: Calculate simplified mouse pos from ClientX/Y and PRE-CALCULATED container bounds?
+            // Or just traverse up?
+            // Easiest: Use the fact that e.clientX is stable.
+            // We'll calculate offset in handlePointerMove if startPos isn't set perfectly?
+            // No, we need start offset now.
+
+            // Workaround: Access the parent container (div) via closest? 
+            // Or just assume the canvas is full screen? 
+            // Safer: Use the viewport info + clientX.
+
+            // Let's assume the parent 'div' is the offset parent or close enough.
+            // Actually, we can just use the Page coordinates if we knew the canvas offset.
+
+            // BETTER FIX: Don't calculate dragging offset here.
+            // Just set the interaction mode.
+            // In handlePointerDown (parent), since we preventDefault, it returns early.
+            // BUT we can actually let handlePointerDown calculate the startPos/Offset!
+
+            // Strategy change:
+            // 1. handleShapePointerDown: dispatch select. e.preventDefault().
+            // 2. handlePointerDown: ALWAYS calculate coords.
+            // 3. If e.defaultPrevented -> we know it's a shape drag/resize.
+            //    We initialize dragOffset using the calculated coords and the NOW selected ID.
+
+            // But Redux dispatch is async? No, it's synchronous for state update usually, but component re-render is async.
+            // So shapes[selectedId] might not be current in the PARENT handler immediately if we just dispatched?
+            // Actually, Redux state from useAppSelector updates on next render.
+            // So relying on `shapes` in parent handler is risky if we just changed selection.
+            // BUT `handleShapePointerDown` has access to `id`.
+            // We can pass `id` up? or set a ref?
+
+            // Simplest Robust Way:
+            // Calculate local offset here using event.
+            // We need to construct the canvas coords manully without getCanvasCoords dependent on CurrentTarget.
+            const container = document.getElementById("canvas-container");
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+                const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+                dragOffset.current = { x: canvasX - shape.x, y: canvasY - shape.y };
+            }
         }
     };
 
-    const handleMouseMove = (e: React.MouseEvent) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
+    const handleResizeStart = (e: React.PointerEvent, handle: string) => {
+        // Signal child handled
+        e.preventDefault();
 
-        const canvasX = (screenX - viewport.x) / viewport.zoom;
-        const canvasY = (screenY - viewport.y) / viewport.zoom;
+        setInteractionMode(handle === "rotate" ? "rotating" : "resizing");
+        setResizeHandle(handle);
 
-        // Handle Panning
-        if (tool === "hand" && startPos.current) {
-            const dx = screenX - startPos.current.x;
-            const dy = screenY - startPos.current.y;
+        if (selectedId) {
+            initialShapeState.current = { ...shapes[selectedId] };
 
-            // Dispatch viewport update
-            dispatch(setViewport({
-                ...viewport,
-                x: viewport.x + dx,
-                y: viewport.y + dy
-            }));
+            const container = document.getElementById("canvas-container");
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+                const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+                startPos.current = { x: canvasX, y: canvasY };
+            }
+        }
+    };
 
-            startPos.current = { x: screenX, y: screenY };
-            return;
+    const handlePointerMove = (e: React.PointerEvent) => {
+        // e.preventDefault(); // Prevent scrolling on touch devices (commented out if it blocks other stuff, but usually good)
+
+        if (interactionMode === "idle") return;
+
+        // Use RAF to throttle updates
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+        rafRef.current = requestAnimationFrame(() => {
+            const { screenX, screenY, canvasX, canvasY } = getCanvasCoords(e);
+
+            if (interactionMode === "panning" && startPos.current) {
+                const dx = screenX - startPos.current.x;
+                const dy = screenY - startPos.current.y;
+                dispatch(setViewport({ ...viewport, x: viewport.x + dx, y: viewport.y + dy }));
+                startPos.current = { x: screenX, y: screenY };
+                return;
+            }
+
+            if (interactionMode === "dragging" && selectedId && dragOffset.current) {
+                dispatch(updateShape({
+                    id: selectedId,
+                    x: canvasX - dragOffset.current.x,
+                    y: canvasY - dragOffset.current.y
+                }));
+                return;
+            }
+
+            if (interactionMode === "drawing" && isDrawing && currentShapeId && startPos.current && tool !== "text") {
+                const width = canvasX - startPos.current.x;
+                const height = canvasY - startPos.current.y;
+                const x = width < 0 ? canvasX : startPos.current.x;
+                const y = height < 0 ? canvasY : startPos.current.y;
+
+                dispatch(updateShape({
+                    id: currentShapeId,
+                    x, y,
+                    width: Math.abs(width),
+                    height: Math.abs(height)
+                }));
+                return;
+            }
+
+            if (interactionMode === "resizing" && selectedId && initialShapeState.current && startPos.current) {
+                const dx = canvasX - startPos.current.x;
+                const dy = canvasY - startPos.current.y;
+                const initial = initialShapeState.current;
+
+                let newX = initial.x;
+                let newY = initial.y;
+                let newWidth = initial.width;
+                let newHeight = initial.height;
+
+                if (resizeHandle?.includes("e")) newWidth = initial.width + dx;
+                if (resizeHandle?.includes("s")) newHeight = initial.height + dy;
+                if (resizeHandle?.includes("w")) { newWidth = initial.width - dx; newX = initial.x + dx; }
+                if (resizeHandle?.includes("n")) { newHeight = initial.height - dy; newY = initial.y + dy; }
+
+                dispatch(updateShape({
+                    id: selectedId,
+                    x: newX, y: newY,
+                    width: newWidth, height: newHeight
+                }));
+            }
+
+            if (interactionMode === "rotating" && selectedId && initialShapeState.current) {
+                const shape = shapes[selectedId];
+                const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
+                const angle = Math.atan2(canvasY - center.y, canvasX - center.x) * (180 / Math.PI);
+                dispatch(updateShape({ id: selectedId, rotation: angle + 90 }));
+            }
+        });
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+
+        if (isDrawing && tool === "text" && currentShapeId) {
+            dispatch(setTool("select"));
+            // Auto-select the text box
+            dispatch(selectShape(currentShapeId));
+            setEditingId(currentShapeId);
         }
 
-        // Handle Dragging
-        if (draggingId && tool === "select" && dragOffset.current) {
-            dispatch(updateShape({
-                id: draggingId,
-                x: canvasX - dragOffset.current.x,
-                y: canvasY - dragOffset.current.y
-            }));
-            return;
+        setInteractionMode("idle");
+        setIsDrawing(false);
+        setCurrentShapeId(null);
+        startPos.current = null;
+        dragOffset.current = null;
+        initialShapeState.current = null;
+        setResizeHandle(null);
+
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
         }
-
-        // Handle Drawing
-        if (!isDrawing || !currentShapeId || !startPos.current) return;
-        if (tool === "text") return;
-
-        const width = canvasX - startPos.current.x;
-        const height = canvasY - startPos.current.y;
-
-        const x = width < 0 ? canvasX : startPos.current.x;
-        const y = height < 0 ? canvasY : startPos.current.y;
-
-        dispatch(updateShape({
-            id: currentShapeId,
-            x,
-            y,
-            width: Math.abs(width),
-            height: Math.abs(height)
-        }));
     };
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -158,12 +316,27 @@ export default function CanvasBoard() {
         if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             const ZOOM_SPEED = 0.001;
-            const newZoom = Math.max(0.1, Math.min(5, viewport.zoom - e.deltaY * ZOOM_SPEED));
+            const oldZoom = viewport.zoom;
+            // Limit zoom range
+            const newZoom = Math.max(0.1, Math.min(5, oldZoom - e.deltaY * ZOOM_SPEED));
 
-            // Zoom towards mouse pointer logic could go here, for now center/simple zoom
-            // Simple zoom update
+            // Calculate mouse position relative to canvas container (screen coords)
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Calculate world coordinates of the mouse before zoom
+            const worldX = (mouseX - viewport.x) / oldZoom;
+            const worldY = (mouseY - viewport.y) / oldZoom;
+
+            // Calculate new viewport position to keep mouse over same world point
+            // mouseX = newViewportX + worldX * newZoom
+            const newViewportX = mouseX - worldX * newZoom;
+            const newViewportY = mouseY - worldY * newZoom;
+
             dispatch(setViewport({
-                ...viewport,
+                x: newViewportX,
+                y: newViewportY,
                 zoom: newZoom
             }));
         } else {
@@ -176,43 +349,13 @@ export default function CanvasBoard() {
         }
     };
 
-    const handleMouseUp = () => {
-        if (isDrawing && tool === "text" && currentShapeId) {
-            dispatch(setTool("select"));
-        }
-
-        setIsDrawing(false);
-        setCurrentShapeId(null);
-        startPos.current = null;
-        setDraggingId(null);
-        dragOffset.current = null;
-    };
-
-
-    const handleDoubleClick = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        const shape = shapes[id];
-        if (shape && shape.type === "text") {
-            setEditingId(id);
-            dispatch(selectShape(id));
-        }
-    };
-
-    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (editingId) {
-            dispatch(updateShape({
-                id: editingId,
-                content: e.target.value
-            }));
-        }
-    };
-
     return (
         <div
-            className="absolute inset-0 overflow-hidden bg-dot-pattern cursor-crosshair"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
+            id="canvas-container"
+            className="absolute inset-0 overflow-hidden bg-dot-pattern cursor-crosshair select-none touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
             onWheel={handleWheel}
         >
             <svg
@@ -224,15 +367,27 @@ export default function CanvasBoard() {
             >
                 {ids.map((id) => (
                     <g key={id}
-                        onMouseDown={(e) => handleShapeMouseDown(e, id)}
-                        onDoubleClick={(e) => handleDoubleClick(e, id)}
-                        className={`hover:opacity-80 ${tool === 'select' ? 'cursor-move' : ''}`}>
-                        <RenderShape shape={shapes[id]} />
+                        onPointerDown={(e) => handleShapePointerDown(e, id)}
+                        onDoubleClick={(e) => { e.stopPropagation(); if (shapes[id].type === "text") setEditingId(id); }}
+                        className={`hover:opacity-80 transition-opacity ${tool === 'select' ? 'cursor-move' : ''}`}
+                    >
+                        <ShapeRenderer shape={shapes[id]} isSelected={selectedId === id} />
                     </g>
                 ))}
             </svg>
 
-            {/* Editing Overlay */}
+            {/* Selection Overlay (Outside SVG so it doesn't get scaled poorly, but we match position manually) */}
+            {selectedId && shapes[selectedId] && tool === "select" && !editingId && (
+                <SelectionOverlay
+                    shape={shapes[selectedId]}
+                    zoom={viewport.zoom}
+                    viewportX={viewport.x}
+                    viewportY={viewport.y}
+                    onResizeStart={handleResizeStart}
+                />
+            )}
+
+            {/* Text Editing Overlay */}
             {editingId && shapes[editingId] && (
                 <div
                     style={{
@@ -245,13 +400,13 @@ export default function CanvasBoard() {
                 >
                     <textarea
                         ref={textareaRef}
-                        value={shapes[editingId].content || ""}
-                        onChange={handleTextChange}
+                        defaultValue={shapes[editingId].content || ""}
+                        onChange={(e) => dispatch(updateShape({ id: editingId, content: e.target.value }))}
                         onBlur={() => setEditingId(null)}
                         className="bg-transparent text-black border border-blue-500 outline-none resize-none overflow-hidden p-0 m-0"
                         style={{
                             fontSize: 16,
-                            fontFamily: "sans-serif",
+                            fontFamily: "Inter, sans-serif",
                             width: Math.max(100, shapes[editingId].width * viewport.zoom),
                             height: Math.max(30, shapes[editingId].height * viewport.zoom),
                         }}
@@ -260,52 +415,4 @@ export default function CanvasBoard() {
             )}
         </div>
     );
-}
-
-function RenderShape({ shape }: { shape: Shape }) {
-    const commonProps = {
-        transform: `translate(${shape.x}, ${shape.y}) rotate(${shape.rotation})`,
-        fill: shape.fill,
-        stroke: shape.stroke,
-        strokeWidth: shape.strokeWidth,
-    };
-
-    switch (shape.type) {
-        case "rectangle":
-            return (
-                <rect
-                    width={Math.max(0, shape.width)}
-                    height={Math.max(0, shape.height)}
-                    {...commonProps}
-                />
-            );
-        case "ellipse":
-            return (
-                <ellipse
-                    cx={shape.width / 2}
-                    cy={shape.height / 2}
-                    rx={Math.max(0, shape.width) / 2}
-                    ry={Math.max(0, shape.height) / 2}
-                    {...commonProps}
-                />
-            );
-        case "text":
-            return (
-                <text
-                    x={shape.x}
-                    y={shape.y}
-                    transform={`rotate(${shape.rotation}, ${shape.x}, ${shape.y})`}
-                    dy="1em"
-                    fontSize={16}
-                    fontFamily="sans-serif"
-                    fill={shape.fill || "black"}
-                    stroke="none"
-                    className="select-none pointer-events-none"
-                >
-                    {shape.content || "Double click to edit"}
-                </text>
-            );
-        default:
-            return null;
-    }
 }

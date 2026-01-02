@@ -18,19 +18,42 @@ export default defineSchema({
         userId: v.id("users"),
         name: v.string(),
         description: v.optional(v.string()),
-        styleGuide: v.optional(v.any()), // Placeholder for style guide object
-        sketchesData: v.optional(v.any()), // Placeholder for sketches
-        viewportData: v.optional(v.any()), // Placeholder for viewport
-        moodBoardImages: v.optional(v.array(v.string())), // Array of image URLs or storage IDs
-        inspirationImages: v.optional(v.array(v.string())),
+        // Strict Shape Schema
+        canvasData: v.optional(v.object({
+            // shapes: v.any(), // Removed in favor of strict schema below
+            // Actually, we can use a JSON string or simplified array. 
+            // Better: v.array of objects if we assume standard shape structure, but objects index by ID is faster for canvas.
+            // Compromise: Storing as JSON string is safest for complex nested Redux state, OR strict array.
+            // Let's us strict array for queryability.
+            shapes: v.array(v.object({
+                id: v.string(),
+                type: v.string(),
+                x: v.number(),
+                y: v.number(),
+                width: v.number(),
+                height: v.number(),
+                fill: v.string(),
+                stroke: v.string(),
+                strokeWidth: v.number(),
+                rotation: v.number(),
+                content: v.optional(v.string()),
+            })),
+            viewport: v.object({
+                x: v.number(),
+                y: v.number(),
+                zoom: v.number()
+            })
+        })),
+        styleGuide: v.optional(v.object({
+            primaryColor: v.optional(v.string()),
+            fontFamily: v.optional(v.string()),
+            borderRadius: v.optional(v.string()),
+        })),
+        moodBoardImages: v.optional(v.array(v.string())),
         tags: v.optional(v.array(v.string())),
-        projectNumber: v.optional(v.number()),
-        status: v.optional(v.string()), // e.g., "active", "archived"
+        isArchived: v.optional(v.boolean()),
+        status: v.optional(v.string()), // Deprecated, but kept for existing data validation
     }).index("by_user", ["userId"]),
-    project_counters: defineTable({
-        projectId: v.id("projects"),
-        count: v.number(),
-    }).index("by_project", ["projectId"]),
     subscriptions: defineTable({
         userId: v.id("users"),
         amount: v.number(),
@@ -42,7 +65,7 @@ export default defineSchema({
         startDate: v.number(),
         endDate: v.optional(v.number()),
     }).index("by_user", ["userId"]),
-    credits_ledger: defineTable({
+    project_counters: defineTable({
         userId: v.id("users"),
         amount: v.number(),
         type: v.string(), // "credit", "debit"

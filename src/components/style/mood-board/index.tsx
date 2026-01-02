@@ -16,9 +16,8 @@ interface MoodBoardProps {
 
 export default function MoodBoard({ projectId }: MoodBoardProps) {
     const project = useQuery(api.projects.getProject, { projectId });
-    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
     const saveImage = useMutation(api.files.saveImage);
-    const { startUpload } = useUploadFiles(generateUploadUrl);
+    const { startUpload } = useUploadFiles(api.files.generateUploadUrl);
 
     const [dragActive, setDragActive] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);

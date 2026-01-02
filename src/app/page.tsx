@@ -1,173 +1,141 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, Layers, Zap, Image as ImageIcon, Code2, PaintBucket } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackgroundPaths } from "@/components/landing/BackgroundPaths";
+import { ArrowRight, Layers, Zap, Image as ImageIcon, Code2, PaintBucket, Sparkles, Check } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen w-full flex flex-col bg-neutral-50 dark:bg-black text-foreground antialiased font-sans overflow-x-hidden selection:bg-indigo-500/30">
+    <div className="relative min-h-screen w-full flex flex-col bg-white dark:bg-black text-neutral-900 dark:text-white overflow-x-hidden selection:bg-neutral-200 dark:selection:bg-neutral-800">
 
-      {/* Navbar with Glassmorphism */}
-      <header className="fixed top-0 z-50 w-full border-b border-white/10 bg-white/70 dark:bg-black/70 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
-        <div className="container mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold text-xl tracking-tight">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+      {/* Background */}
+      <BackgroundPaths />
+
+      {/* Navbar */}
+      <header className="fixed top-0 z-50 w-full border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-black/50 backdrop-blur-xl">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-xl tracking-tighter">
+            <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-white flex items-center justify-center text-white dark:text-black">
               <Layers className="w-5 h-5" />
             </div>
             LOOM
           </div>
-          <nav className="flex items-center gap-6">
-            <Link href="/auth/signin" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Sign In</Link>
-            <Button size="sm" asChild className="rounded-full px-6 shadow-none hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-300">
+          <nav className="flex items-center gap-4">
+            <Link href="/auth/signin" className="text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors">Log In</Link>
+            <Button size="sm" asChild className="rounded-full px-5 bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all font-medium">
               <Link href="/auth/signin">Get Started</Link>
             </Button>
           </nav>
         </div>
       </header>
 
-      <main className="flex-1 pt-16">
-        {/* Hero Section */}
-        <section className="relative pt-32 pb-40 md:pt-48 md:pb-64 overflow-hidden flex flex-col items-center justify-center text-center">
-          {/* Apple-style animated background mesh */}
-          <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-purple-500/10 rounded-full blur-[120px] animate-pulse-slow pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
-          <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse-slow delay-1000 pointer-events-none mix-blend-multiply dark:mix-blend-screen" />
-
-          <div className="container mx-auto px-4 relative z-10 max-w-5xl">
-            <div className="inline-flex items-center justify-center px-4 py-1.5 mb-8 rounded-full bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 backdrop-blur-md shadow-sm">
-              <span className="text-sm font-medium bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
-                Introduced: Multimodal AI Generation 2.0
-              </span>
-            </div>
-
-            <h1 className="font-heading text-5xl sm:text-7xl md:text-8xl font-bold tracking-tight leading-[1.1] mb-8 text-neutral-900 dark:text-white">
-              Design at the speed <br className="hidden sm:inline" />
-              of <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-gradient-x">Thought.</span>
-            </h1>
-
-            <p className="max-w-2xl mx-auto text-lg md:text-xl leading-relaxed text-neutral-600 dark:text-neutral-300 mb-12">
-              Transform your wireframes into production-ready React code instantly.
-              The most intuitive way to build user interfaces, powered by Gemini 1.5.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-xl shadow-indigo-600/20 hover:scale-105 transition-transform duration-300 bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-100" asChild>
-                <Link href="/auth/signin">
-                  Start Building Free <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" className="h-14 px-8 text-lg rounded-full border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 backdrop-blur-sm" asChild>
-                <Link href="https://github.com/Sarvesh2005-code/loom" target="_blank">
-                  View on GitHub
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Grid */}
-        <section className="container mx-auto px-4 py-24 md:py-32">
-          <div className="max-w-3xl mx-auto text-center mb-20 space-y-4">
-            <h2 className="text-3xl font-bold tracking-tight md:text-5xl text-neutral-900 dark:text-white">Pro-grade tools. <br />Zero complexity.</h2>
-            <p className="text-lg text-neutral-600 dark:text-neutral-400">
-              Everything you need to go from idea to shipped product in minutes.
-            </p>
+      <main className="flex-1 relative z-10 pt-32">
+        {/* Hero */}
+        <section className="container mx-auto px-6 pb-24 text-center flex flex-col items-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            v2.0 is now live
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            <FeatureCard
-              icon={<Layers className="w-8 h-8 text-indigo-500" />}
-              title="Infinite Canvas"
-              description="A fluid, boundless workspace. Drag, drop, and sketch freely."
-            />
-            <FeatureCard
-              icon={<Zap className="w-8 h-8 text-amber-500" />}
-              title="AI Code Generation"
-              description="Instant React + Tailwind code. Powered by Gemini 1.5 Flash."
-            />
-            <FeatureCard
-              icon={<ImageIcon className="w-8 h-8 text-pink-500" />}
-              title="Mood Boards"
-              description="Upload inspiration. The AI sees what you see and matches the vibe."
-            />
-            <FeatureCard
-              icon={<PaintBucket className="w-8 h-8 text-emerald-500" />}
-              title="Style System"
-              description="Define tokens for Color, Typography, and Radius. Consistent every time."
-            />
-            <FeatureCard
-              icon={<Code2 className="w-8 h-8 text-blue-500" />}
-              title="Clean Export"
-              description="Copy-paste ready. Typescript, Lucide Icons, and accessible HTML."
-            />
-            <FeatureCard
-              icon={<Sparkles className="w-8 h-8 text-purple-500" />}
-              title="Smart Iteration"
-              description="Tweak the canvas, regenerate, and watch your UI evolve."
-            />
+          <h1 className="text-5xl md:text-8xl font-bold tracking-tighter mb-8 max-w-4xl mx-auto leading-[0.9]">
+            Design at the <br /> speed of thought.
+          </h1>
+
+          <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+            Loom transforms your rough sketches into production-ready React code.
+            Powered by multimodal AI, built for modern engineering teams.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
+            <Button size="lg" className="h-14 px-8 rounded-full text-lg bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1" asChild>
+              <Link href="/auth/signin">
+                Start Building <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" className="h-14 px-8 rounded-full text-lg border-neutral-200 dark:border-white/10 bg-white/50 dark:bg-black/50 hover:bg-white dark:hover:bg-white/10 backdrop-blur-sm transition-all" asChild>
+              <Link href="https://github.com/Sarvesh2005-code/loom" target="_blank">
+                View on GitHub
+              </Link>
+            </Button>
           </div>
-        </section>
 
-        {/* Pricing Teaser / CTA */}
-        <section className="container mx-auto px-4 py-24">
-          <div className="relative overflow-hidden rounded-[2.5rem] bg-neutral-900 dark:bg-white text-white dark:text-black p-8 md:p-20 shadow-2xl">
-            <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-indigo-500 rounded-full blur-[100px] opacity-30 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-96 h-96 bg-purple-500 rounded-full blur-[100px] opacity-30 pointer-events-none"></div>
-
-            <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
-              <div className="space-y-6">
-                <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Create your next masterpiece.</h2>
-                <p className="text-lg text-neutral-300 dark:text-neutral-600">
-                  Join thousands of developers using Loom to build faster.
-                </p>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center"><Sparkles className="w-3 h-3 text-green-500" /></div>
-                    <span>Unlimited Generations</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center"><Layers className="w-3 h-3 text-blue-500" /></div>
-                    <span>Advanced Canvas Tools</span>
-                  </div>
-                </div>
-                <Button size="lg" className="h-12 px-8 rounded-full bg-white text-black hover:bg-neutral-100 dark:bg-black dark:text-white dark:hover:bg-neutral-900 mt-4" asChild>
-                  <Link href="/auth/signin">Get Started</Link>
-                </Button>
-              </div>
-
-              <div className="hidden md:flex justify-center">
-                <div className="relative w-64 h-64 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 flex items-center justify-center transform rotate-6 hover:rotate-0 transition-all duration-500">
-                  <span className="text-6xl font-black opacity-20 user-select-none">S2C</span>
-                </div>
-              </div>
+          {/* Screenshot Mockup */}
+          <div className="mt-20 relative w-full max-w-6xl mx-auto rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-neutral-900 shadow-2xl overflow-hidden aspect-video group">
+            <div className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+            {/* Placeholder for actual screenshot - would need a real image here for production */}
+            <div className="absolute inset-0 flex items-center justify-center text-neutral-400 font-mono text-sm">
+              [App Screenshot Placeholder]
             </div>
           </div>
         </section>
-      </main>
 
-      <footer className="border-t border-black/5 dark:border-white/5 py-12 bg-neutral-50 dark:bg-black">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-muted-foreground">
+        {/* Features */}
+        <section className="py-32 border-t border-neutral-200 dark:border-white/5 bg-neutral-50 dark:bg-black">
+          <div className="container mx-auto px-6">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tighter mb-20 text-center">
+              Everything you need to <br /> ship faster.
+            </h2>
+
+            <div className="grid md:grid-cols-3 gap-8">
+              <FeatureCard
+                icon={<Zap className="w-5 h-5" />}
+                title="Instant Generation"
+                description="Turn wireframes into code in seconds with Gemini 1.5 Flash."
+              />
+              <FeatureCard
+                icon={<PaletteIcon className="w-5 h-5" />}
+                title="Design Systems"
+                description="Maintain consistency with centralized Type and Color tokens."
+              />
+              <FeatureCard
+                icon={<Code2 className="w-5 h-5" />}
+                title="Production Ready"
+                description="Export clean, accessible React + Tailwind code."
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* CTO Section */}
+        <section className="py-32 border-t border-neutral-200 dark:border-white/5">
+          <div className="container mx-auto px-6 text-center">
+            <h2 className="text-4xl font-bold tracking-tighter mb-6">Ready to accelerate your workflow?</h2>
+            <p className="text-neutral-500 mb-10 max-w-lg mx-auto">Join thousands of developers using Loom to build the future.</p>
+            <Button size="lg" className="h-14 px-10 rounded-full text-lg bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200" asChild>
+              <Link href="/auth/signin">Get Started for Free</Link>
+            </Button>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="py-12 border-t border-neutral-200 dark:border-white/5 text-center text-sm text-neutral-500">
           <p>© 2024 Loom Inc. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link href="#" className="hover:text-foreground">Privacy</Link>
-            <Link href="#" className="hover:text-foreground">Terms</Link>
-            <Link href="https://github.com/Sarvesh2005-code/loom" className="hover:text-foreground">GitHub</Link>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   );
 }
 
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
   return (
-    <Card className="bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm border border-black/5 dark:border-white/10 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 rounded-2xl group cursor-default">
-      <CardHeader>
-        <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">{icon}</div>
-        <CardTitle className="text-xl font-semibold mb-2">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground leading-relaxed">{description}</p>
-      </CardContent>
-    </Card>
-  );
+    <div className="p-8 rounded-3xl bg-white dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/5 hover:border-neutral-300 dark:hover:border-white/10 transition-colors">
+      <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-white/10 flex items-center justify-center mb-6 text-neutral-900 dark:text-white">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold mb-3 tracking-tight">{title}</h3>
+      <p className="text-neutral-500 leading-relaxed">
+        {description}
+      </p>
+    </div>
+  )
+}
+
+function PaletteIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>
+  )
 }
