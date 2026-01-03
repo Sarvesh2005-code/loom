@@ -113,11 +113,43 @@ export const shapesSlice = createSlice({
             delete state.shapes[idToDelete];
             state.ids = state.ids.filter(id => id !== idToDelete);
             state.selectedIds = state.selectedIds.filter(id => id !== idToDelete);
+        },
+        reorderShape: (state, action: PayloadAction<{ id: string; direction: "front" | "back" | "forward" | "backward" }>) => {
+            pushHistory(state);
+            const { id, direction } = action.payload;
+            const currentIndex = state.ids.indexOf(id);
+            if (currentIndex === -1) return;
+
+            const newIds = [...state.ids];
+            newIds.splice(currentIndex, 1);
+
+            if (direction === "front") {
+                newIds.push(id);
+            } else if (direction === "back") {
+                newIds.unshift(id);
+            } else if (direction === "forward") {
+                newIds.splice(Math.min(currentIndex + 1, newIds.length), 0, id);
+            } else if (direction === "backward") {
+                newIds.splice(Math.max(currentIndex - 1, 0), 0, id);
+            }
+
+            state.ids = newIds;
+        },
+        pasteShapes: (state, action: PayloadAction<Shape[]>) => {
+            pushHistory(state);
+            const newShapes = action.payload;
+            newShapes.forEach(shape => {
+                // Generate new ID to avoid collision
+                const newId = uuidv4();
+                state.shapes[newId] = { ...shape, id: newId, x: shape.x + 20, y: shape.y + 20 }; // Offset paste
+                state.ids.push(newId);
+                state.selectedIds = [newId]; // Select pasted items
+            });
         }
     },
 })
 
-export const { setTool, setViewport, addShape, updateShape, selectShape, deselectAll, setShapes, undo, redo, deleteShape } = shapesSlice.actions
+export const { setTool, setViewport, addShape, updateShape, selectShape, deselectAll, setShapes, undo, redo, deleteShape, reorderShape, pasteShapes } = shapesSlice.actions
 
 // Duplicate removed
 

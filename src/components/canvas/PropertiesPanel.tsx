@@ -1,8 +1,8 @@
 "use client";
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { updateShape } from "@/lib/slices/shapesSlice";
-import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Trash2, Type } from "lucide-react";
+import { updateShape, reorderShape } from "@/lib/slices/shapesSlice";
+import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Trash2, Type, BringToFront, SendToBack, ArrowUpSquare, ArrowDownSquare } from "lucide-react";
 import { HexColorPicker } from "react-colorful";
 import { useState, useRef, useEffect } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -69,6 +69,43 @@ export default function PropertiesPanel() {
                         onChange={(e) => update({ height: Number(e.target.value) })}
                         className="bg-neutral-800 border border-white/5 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
                     />
+                </div>
+            </div>
+
+            <div className="h-px bg-white/5" />
+
+            {/* Arrange */}
+            <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-neutral-400">Arrange</span>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => dispatch(reorderShape({ id: shape.id, direction: "front" }))}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                        title="Bring to Front (Shift + ])"
+                    >
+                        <BringToFront className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => dispatch(reorderShape({ id: shape.id, direction: "forward" }))}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                        title="Bring Forward (])"
+                    >
+                        <ArrowUpSquare className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => dispatch(reorderShape({ id: shape.id, direction: "backward" }))}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                        title="Send Backward ([)"
+                    >
+                        <ArrowDownSquare className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => dispatch(reorderShape({ id: shape.id, direction: "back" }))}
+                        className="p-1.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                        title="Send to Back (Shift + [)"
+                    >
+                        <SendToBack className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 
