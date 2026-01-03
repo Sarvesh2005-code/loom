@@ -114,6 +114,7 @@ export default function SessionPage({ params }: Props) {
                 isOpen={isPreviewOpen}
                 onClose={() => setIsPreviewOpen(false)}
                 code={generatedCode}
+                projectId={projectId}
             />
         </main>
     );

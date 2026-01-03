@@ -207,3 +207,60 @@ export const refineShapes = action({
     }
   }
 });
+
+export const refineCode = action({
+  args: {
+    projectId: v.id("projects"),
+    sourceCode: v.string(), // The current code
+    prompt: v.string(),     // User instruction
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) throw new Error("Unauthenticated");
+
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+
+    // Fallback Mock
+    if (!apiKey) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return {
+        code: args.sourceCode + "\n// Mock Refinement: " + args.prompt,
+        message: "Refined (Mock)"
+      };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `
+        You are an expert React/Tailwind Engineer.
+        
+        GOAL: Modify the existing React component based on the USER_INSTRUCTION.
+        
+        EXISTING_CODE:
+        ${args.sourceCode}
+        
+        USER_INSTRUCTION:
+        "${args.prompt}"
+        
+        RULES:
+        1. Return ONLY the new full code. No markdown.
+        2. Keep imports if needed, or add new ones (lucide-react).
+        3. Maintain the default export.
+        4. Be smart about what the user wants. If they say "dark mode", change colors.
+        
+        OUTPUT:
+    `;
+
+    try {
+      const result = await model.generateContent(prompt);
+      let text = result.response.text();
+      text = text.replace(/```tsx|```jsx|```/g, "").trim();
+
+      return { code: text };
+    } catch (e: any) {
+      console.error("Gemini Refine Error:", e);
+      throw new Error("Failed to refine code: " + e.message);
+    }
+  }
+});
