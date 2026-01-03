@@ -28,7 +28,7 @@ export default function SessionPage({ params }: Props) {
     const router = useRouter();
 
     const { isLoading, project } = useCanvasHydration(projectId as Id<"projects">);
-    const saveStatus = useCanvasSync(projectId as Id<"projects">);
+    const saveStatus = useCanvasSync(projectId as Id<"projects">, !isLoading);
 
     const [activeView, setActiveView] = useState<"canvas" | "style-guide">("canvas");
     const [generatedCode, setGeneratedCode] = useState("");

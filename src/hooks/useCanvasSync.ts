@@ -5,7 +5,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
 import { Shape } from "@/lib/slices/shapesSlice"; // Ensure this is exported
 
-export function useCanvasSync(projectId: Id<"projects">) {
+export function useCanvasSync(projectId: Id<"projects">, isLoaded: boolean) {
     const { shapes, ids, viewport } = useAppSelector((state) => state.shapes);
     const updateProject = useMutation(api.projects.updateProject);
 
@@ -14,6 +14,8 @@ export function useCanvasSync(projectId: Id<"projects">) {
     const lastSavedState = useRef<string>("");
 
     useEffect(() => {
+        if (!isLoaded) return; // Critical: Don't sync until loaded
+
         // Prepare data payload
         const shapesArray = ids.map(id => shapes[id]);
         const payload = {
@@ -51,7 +53,7 @@ export function useCanvasSync(projectId: Id<"projects">) {
         return () => {
             if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
         };
-    }, [shapes, ids, viewport, projectId, updateProject]);
+    }, [shapes, ids, viewport, projectId, updateProject, isLoaded]); // Added isLoaded dependency
 
     return status;
 }

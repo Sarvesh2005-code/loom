@@ -21,8 +21,8 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     const selectedId = selectedIds[0] || null;
 
     // Hooks for Persistence
-    useCanvasHydration(projectId);
-    useCanvasSync(projectId);
+    const { isLoading } = useCanvasHydration(projectId);
+    useCanvasSync(projectId, !isLoading); // Only sync when loaded
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentShapeId, setCurrentShapeId] = useState<string | null>(null);
@@ -33,6 +33,7 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
     // Refs for Drag/Resize
+    const containerRef = useRef<HTMLDivElement>(null); // Optimized: Direct ref instead of getElementById
     const dragOffset = useRef<{ x: number, y: number } | null>(null);
     const initialShapeState = useRef<Shape | null>(null);
     const rafRef = useRef<number | null>(null); // For RAF throttling
@@ -61,7 +62,8 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     }, [editingId]);
 
     const getCanvasCoords = (e: React.PointerEvent) => {
-        const rect = e.currentTarget.getBoundingClientRect();
+        // Use containerRef if available, fallback to currentTarget (which should be container)
+        const rect = containerRef.current?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
         const canvasX = (screenX - viewport.x) / viewport.zoom;
@@ -81,7 +83,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
 
         // Check if a child handled this event (shape click or resize handle)
         if (e.defaultPrevented) {
-            // Child handled it (drag or resize), we just ensure capture is set (done above)
             return;
         }
 
@@ -124,6 +125,7 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
             newShape.height = 30;
             newShape.fill = "black";
             newShape.content = "Double click to edit";
+            newShape.stroke = "none"; // Text shouldn't have stroke by default
         }
 
         dispatch(addShape(newShape));
@@ -133,59 +135,14 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
         if (tool === "select") {
             // Signal to parent that we handled this as a shape interaction
             e.preventDefault();
-            // Do NOT stopPropagation, let parent setPointerCapture
-
             dispatch(selectShape(id));
             setInteractionMode("dragging");
 
-            // We need coords relative to the canvas, so we can't use e.nativeEvent easily
-            // But getCanvasCoords needs the container rect. 
-            // e.currentTarget is the GROUP <g>. We need the DIV's rect.
-            // We can calculate offset from the shape's data which is simpler.
             const shape = shapes[id];
 
-            // However, to drag accurately relative to mouse, we need mouse world coords.
-            // getCanvasCoords uses e.currentTarget.getBoundingClientRect().
-            // If we use it here, e.currentTarget is SVG <g>, which changes bounds!
-            // WE NEED THE CONTAINER DIV.
-
-            // Fix: Calculate simplified mouse pos from ClientX/Y and PRE-CALCULATED container bounds?
-            // Or just traverse up?
-            // Easiest: Use the fact that e.clientX is stable.
-            // We'll calculate offset in handlePointerMove if startPos isn't set perfectly?
-            // No, we need start offset now.
-
-            // Workaround: Access the parent container (div) via closest? 
-            // Or just assume the canvas is full screen? 
-            // Safer: Use the viewport info + clientX.
-
-            // Let's assume the parent 'div' is the offset parent or close enough.
-            // Actually, we can just use the Page coordinates if we knew the canvas offset.
-
-            // BETTER FIX: Don't calculate dragging offset here.
-            // Just set the interaction mode.
-            // In handlePointerDown (parent), since we preventDefault, it returns early.
-            // BUT we can actually let handlePointerDown calculate the startPos/Offset!
-
-            // Strategy change:
-            // 1. handleShapePointerDown: dispatch select. e.preventDefault().
-            // 2. handlePointerDown: ALWAYS calculate coords.
-            // 3. If e.defaultPrevented -> we know it's a shape drag/resize.
-            //    We initialize dragOffset using the calculated coords and the NOW selected ID.
-
-            // But Redux dispatch is async? No, it's synchronous for state update usually, but component re-render is async.
-            // So shapes[selectedId] might not be current in the PARENT handler immediately if we just dispatched?
-            // Actually, Redux state from useAppSelector updates on next render.
-            // So relying on `shapes` in parent handler is risky if we just changed selection.
-            // BUT `handleShapePointerDown` has access to `id`.
-            // We can pass `id` up? or set a ref?
-
-            // Simplest Robust Way:
-            // Calculate local offset here using event.
-            // We need to construct the canvas coords manully without getCanvasCoords dependent on CurrentTarget.
-            const container = document.getElementById("canvas-container");
-            if (container) {
-                const rect = container.getBoundingClientRect();
+            // Robust offset calculation using cached container ref
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
                 const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
                 const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
                 dragOffset.current = { x: canvasX - shape.x, y: canvasY - shape.y };
@@ -194,18 +151,15 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     };
 
     const handleResizeStart = (e: React.PointerEvent, handle: string) => {
-        // Signal child handled
         e.preventDefault();
-
         setInteractionMode(handle === "rotate" ? "rotating" : "resizing");
         setResizeHandle(handle);
 
         if (selectedId) {
             initialShapeState.current = { ...shapes[selectedId] };
 
-            const container = document.getElementById("canvas-container");
-            if (container) {
-                const rect = container.getBoundingClientRect();
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
                 const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
                 const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
                 startPos.current = { x: canvasX, y: canvasY };
@@ -214,8 +168,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        // e.preventDefault(); // Prevent scrolling on touch devices (commented out if it blocks other stuff, but usually good)
-
         if (interactionMode === "idle") return;
 
         // Use RAF to throttle updates
@@ -292,7 +244,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
 
         if (isDrawing && tool === "text" && currentShapeId) {
             dispatch(setTool("select"));
-            // Auto-select the text box
             dispatch(selectShape(currentShapeId));
             setEditingId(currentShapeId);
         }
@@ -312,25 +263,19 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     };
 
     const handleWheel = (e: React.WheelEvent) => {
-        // Zoom Logic
         if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             const ZOOM_SPEED = 0.001;
             const oldZoom = viewport.zoom;
-            // Limit zoom range
             const newZoom = Math.max(0.1, Math.min(5, oldZoom - e.deltaY * ZOOM_SPEED));
 
-            // Calculate mouse position relative to canvas container (screen coords)
             const rect = e.currentTarget.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            // Calculate world coordinates of the mouse before zoom
             const worldX = (mouseX - viewport.x) / oldZoom;
             const worldY = (mouseY - viewport.y) / oldZoom;
 
-            // Calculate new viewport position to keep mouse over same world point
-            // mouseX = newViewportX + worldX * newZoom
             const newViewportX = mouseX - worldX * newZoom;
             const newViewportY = mouseY - worldY * newZoom;
 
@@ -340,7 +285,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
                 zoom: newZoom
             }));
         } else {
-            // Pan on scroll
             dispatch(setViewport({
                 ...viewport,
                 x: viewport.x - e.deltaX,
@@ -351,7 +295,8 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
 
     return (
         <div
-            id="canvas-container"
+            id="canvas-container" // Kept for global CSS if needed, but we use ref now
+            ref={containerRef}
             className="absolute inset-0 overflow-hidden bg-dot-pattern cursor-crosshair select-none touch-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -376,7 +321,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
                 ))}
             </svg>
 
-            {/* Selection Overlay (Outside SVG so it doesn't get scaled poorly, but we match position manually) */}
             {selectedId && shapes[selectedId] && tool === "select" && !editingId && (
                 <SelectionOverlay
                     shape={shapes[selectedId]}
@@ -387,7 +331,6 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
                 />
             )}
 
-            {/* Text Editing Overlay */}
             {editingId && shapes[editingId] && (
                 <div
                     style={{
