@@ -27,9 +27,10 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentShapeId, setCurrentShapeId] = useState<string | null>(null);
     const startPos = useRef<{ x: number, y: number } | null>(null);
+    const [cursorPos, setCursorPos] = useState<{ x: number, y: number } | null>(null); // For Marquee Rendering
 
     // Interaction State
-    const [interactionMode, setInteractionMode] = useState<"idle" | "panning" | "drawing" | "dragging" | "resizing" | "rotating">("idle");
+    const [interactionMode, setInteractionMode] = useState<"idle" | "panning" | "drawing" | "dragging" | "resizing" | "rotating" | "selecting">("idle");
     const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
     // Refs for Drag/Resize
@@ -95,7 +96,10 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
 
         // If clicking on canvas background (not intercepted by shape/handle)
         if (tool === "select") {
+            // Start Marquee
             dispatch(deselectAll());
+            setInteractionMode("selecting");
+            startPos.current = { x: canvasX, y: canvasY };
             return;
         }
 
@@ -176,6 +180,11 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
         rafRef.current = requestAnimationFrame(() => {
             const { screenX, screenY, canvasX, canvasY } = getCanvasCoords(e);
 
+            if (interactionMode === "selecting") {
+                setCursorPos({ x: canvasX, y: canvasY });
+                return;
+            }
+
             if (interactionMode === "panning" && startPos.current) {
                 const dx = screenX - startPos.current.x;
                 const dy = screenY - startPos.current.y;
@@ -242,6 +251,27 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
     const handlePointerUp = (e: React.PointerEvent) => {
         (e.target as Element).releasePointerCapture(e.pointerId);
 
+        if (interactionMode === "selecting" && startPos.current && cursorPos) {
+            // Calculate Marquee Bounds
+            const x1 = Math.min(startPos.current.x, cursorPos.x);
+            const x2 = Math.max(startPos.current.x, cursorPos.x);
+            const y1 = Math.min(startPos.current.y, cursorPos.y);
+            const y2 = Math.max(startPos.current.y, cursorPos.y);
+
+            // Find Intersecting Shapes
+            ids.forEach(id => {
+                const shape = shapes[id];
+                const shapeX2 = shape.x + shape.width;
+                const shapeY2 = shape.y + shape.height;
+
+                // Simple AABB Intersection
+                if (shape.x < x2 && shapeX2 > x1 && shape.y < y2 && shapeY2 > y1) {
+                    dispatch(selectShape(id)); // Note: Use AddSelection if supporting multi-select reducer, else this just selects last one.
+                    // TODO: Implement toggleSelection or addSelection reducer for true multi-select.
+                }
+            });
+        }
+
         if (isDrawing && tool === "text" && currentShapeId) {
             dispatch(setTool("select"));
             dispatch(selectShape(currentShapeId));
@@ -252,6 +282,7 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
         setIsDrawing(false);
         setCurrentShapeId(null);
         startPos.current = null;
+        setCursorPos(null);
         dragOffset.current = null;
         initialShapeState.current = null;
         setResizeHandle(null);
@@ -302,6 +333,35 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onWheel={handleWheel}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+                e.preventDefault();
+                const imageUrl = e.dataTransfer.getData("text/plain");
+                const type = e.dataTransfer.getData("type");
+
+                if (type === "image" && imageUrl) {
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    if (rect) {
+                        const canvasX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+                        const canvasY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+                        const id = uuidv4();
+                        dispatch(addShape({
+                            id,
+                            type: "image",
+                            x: canvasX - 100, // Center roughly
+                            y: canvasY - 100,
+                            width: 200,
+                            height: 200,
+                            fill: "transparent",
+                            stroke: "none",
+                            strokeWidth: 0,
+                            rotation: 0,
+                            content: imageUrl
+                        }));
+                    }
+                }
+            }}
         >
             <svg
                 className="h-full w-full touch-none"
@@ -316,9 +376,22 @@ export default function CanvasBoard({ projectId }: CanvasBoardProps) {
                         onDoubleClick={(e) => { e.stopPropagation(); if (shapes[id].type === "text") setEditingId(id); }}
                         className={`hover:opacity-80 transition-opacity ${tool === 'select' ? 'cursor-move' : ''}`}
                     >
-                        <ShapeRenderer shape={shapes[id]} isSelected={selectedId === id} />
+                        <ShapeRenderer shape={shapes[id]} isSelected={selectedId === id || selectedIds.includes(id)} />
                     </g>
                 ))}
+
+                {/* Marquee Selection Box */}
+                {interactionMode === "selecting" && startPos.current && (
+                    <rect
+                        x={Math.min(startPos.current.x, (cursorPos?.x || startPos.current.x))}
+                        y={Math.min(startPos.current.y, (cursorPos?.y || startPos.current.y))}
+                        width={Math.abs((cursorPos?.x || startPos.current.x) - startPos.current.x)}
+                        height={Math.abs((cursorPos?.y || startPos.current.y) - startPos.current.y)}
+                        fill="rgba(59, 130, 246, 0.1)"
+                        stroke="#3b82f6"
+                        strokeWidth={1 / viewport.zoom}
+                    />
+                )}
             </svg>
 
             {selectedId && shapes[selectedId] && tool === "select" && !editingId && (

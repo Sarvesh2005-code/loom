@@ -1,3 +1,5 @@
+"use client";
+
 import {
     Dialog,
     DialogContent,
@@ -186,8 +188,8 @@ export default function CodePreview({ isOpen, onClose, code: initialCode, projec
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${msg.role === 'user'
-                                            ? 'bg-indigo-600 text-white'
-                                            : 'bg-neutral-800 text-neutral-300'
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-neutral-800 text-neutral-300'
                                         }`}>
                                         {msg.content}
                                     </div>
